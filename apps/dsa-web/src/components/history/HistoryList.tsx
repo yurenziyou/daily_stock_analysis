@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import type { HistoryItem } from '../../types/analysis';
 import { getSentimentColor } from '../../types/analysis';
 import { formatDateTime } from '../../utils/format';
@@ -11,6 +11,10 @@ interface HistoryListProps {
   hasMore: boolean;
   selectedId?: number;  // Selected history record ID
   onItemClick: (recordId: number) => void;  // Callback with record ID
+  onReanalyze?: (stockCode: string) => void;  // Callback to reanalyze stock
+  uniqueStocks?: Array<{code: string, name: string}>;  // 可筛选的股票列表
+  filterStockCode?: string | null;  // 当前筛选的股票代码
+  onFilterChange?: (stockCode: string | null) => void;  // 筛选变化回调
   onLoadMore: () => void;
   className?: string;
 }
@@ -26,11 +30,38 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   hasMore,
   selectedId,
   onItemClick,
+  onReanalyze,
+  uniqueStocks,
+  filterStockCode,
+  onFilterChange,
   onLoadMore,
   className = '',
 }) => {
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
+
+  // 当下拉列表关闭时清空搜索
+  useEffect(() => {
+    if (!showFilterDropdown) {
+      setSearchQuery('');
+    }
+  }, [showFilterDropdown]);
+
+  // 过滤股票列表
+  const filteredStocks = useMemo(() => {
+    if (!uniqueStocks) return [];
+    if (!searchQuery.trim()) return uniqueStocks;
+    
+    const query = searchQuery.toLowerCase();
+    return uniqueStocks.filter(stock => 
+      stock.code.toLowerCase().includes(query) || 
+      stock.name.toLowerCase().includes(query)
+    );
+  }, [uniqueStocks, searchQuery]);
 
   // 使用 IntersectionObserver 检测滚动到底部
   const handleObserver = useCallback(
@@ -66,15 +97,135 @@ export const HistoryList: React.FC<HistoryListProps> = ({
     };
   }, [handleObserver]);
 
+  // 点击外部关闭下拉列表
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isInsideDropdown = dropdownRef.current?.contains(target) || dropdownContentRef.current?.contains(target);
+      if (!isInsideDropdown) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    if (showFilterDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilterDropdown]);
+
   return (
     <aside className={`glass-card overflow-hidden flex flex-col ${className}`}>
       <div ref={scrollContainerRef} className="p-3 flex-1 overflow-y-auto">
-        <h2 className="text-xs font-medium text-purple uppercase tracking-wider mb-3 flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          历史记录
-        </h2>
+        <div className="mb-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-medium text-purple uppercase tracking-wider flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              历史记录
+            </h2>
+            {uniqueStocks && uniqueStocks.length > 0 && onFilterChange && (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${filterStockCode ? 'bg-cyan/10 text-cyan border border-cyan/20' : 'text-muted hover:text-white hover:bg-white/5'}`}
+                  title="筛选股票"
+                  aria-label="筛选股票"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  {filterStockCode ? '已筛选' : '筛选'}
+                  {filterStockCode && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFilterChange(null);
+                      }}
+                      className="ml-1 p-0.5 text-muted hover:text-white rounded-full hover:bg-white/10"
+                      title="清空筛选"
+                      aria-label="清空筛选"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </button>
+                {showFilterDropdown && uniqueStocks && uniqueStocks.length > 0 && onFilterChange && (
+                  <div className="absolute right-0 top-full mt-1 z-50" ref={dropdownContentRef} style={{ width: '220px' }}>
+                    <div className="bg-[#1a1f2e] border border-white/10 shadow-2xl rounded-lg overflow-hidden">
+                      <div className="p-2 border-b border-white/5">
+                        <div className="text-xs text-muted px-2 py-1 mb-1">选择股票</div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="搜索代码或名称..."
+                            className="w-full bg-[#0f141f] border border-white/10 rounded px-2 py-1.5 text-xs text-white placeholder-muted focus:outline-none focus:border-cyan/50"
+                            autoFocus
+                          />
+                          {searchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchQuery('')}
+                              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 text-muted hover:text-white"
+                              title="清空搜索"
+                              aria-label="清空搜索"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto bg-[#1a1f2e]">
+                        {filteredStocks.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-muted">
+                            {searchQuery ? '未找到匹配的股票' : '暂无股票数据'}
+                          </div>
+                        ) : (
+                          filteredStocks.map((stock) => (
+                            <button
+                              key={stock.code}
+                              type="button"
+                              onClick={() => {
+                                onFilterChange(stock.code);
+                                setShowFilterDropdown(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs transition-colors ${filterStockCode === stock.code ? 'bg-cyan/10 text-cyan' : 'text-white hover:bg-white/5'}`}
+                            >
+                              <div className="font-medium">{stock.name}</div>
+                              <div className="text-muted font-mono">{stock.code}</div>
+                            </button>
+                          ))
+                        )}
+                        {filterStockCode && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onFilterChange(null);
+                              setShowFilterDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs text-muted hover:text-white hover:bg-white/5 border-t border-white/5"
+                          >
+                            清空筛选条件
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-6">
@@ -110,17 +261,35 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                       <span className="font-medium text-white truncate text-xs">
                         {item.stockName || item.stockCode}
                       </span>
-                      {item.sentimentScore !== undefined && (
-                        <span
-                          className="text-xs font-mono font-semibold px-1 py-0.5 rounded"
-                          style={{
-                            color: getSentimentColor(item.sentimentScore),
-                            backgroundColor: `${getSentimentColor(item.sentimentScore)}15`
-                          }}
-                        >
-                          {item.sentimentScore}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {item.sentimentScore !== undefined && (
+                          <span
+                            className="text-xs font-mono font-semibold px-1 py-0.5 rounded"
+                            style={{
+                              color: getSentimentColor(item.sentimentScore),
+                              backgroundColor: `${getSentimentColor(item.sentimentScore)}15`
+                            }}
+                          >
+                            {item.sentimentScore}
+                          </span>
+                        )}
+                        {onReanalyze && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onReanalyze(item.stockCode);
+                            }}
+                            className="p-1 text-muted hover:text-cyan transition-colors rounded hover:bg-white/5"
+                            title="重新分析"
+                            aria-label="重新分析"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-xs text-muted font-mono">

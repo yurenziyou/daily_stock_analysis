@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiErrorAlert } from '../components/common';
 import { getParsedApiError } from '../api/error';
@@ -39,6 +39,9 @@ const HomePage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
 
+  // 筛选状态
+  const [filterStockCode, setFilterStockCode] = useState<string | null>(null);
+
   // 报告详情状态
   const [selectedReport, setSelectedReport] = useState<AnalysisReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -46,6 +49,31 @@ const HomePage: React.FC = () => {
   // 任务队列状态
   const [activeTasks, setActiveTasks] = useState<TaskInfo[]>([]);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
+  // 从历史记录中提取唯一的股票列表
+  const uniqueStocks = useMemo(() => {
+    const seen = new Set<string>();
+    const result: Array<{code: string, name: string}> = [];
+    for (const item of historyItems) {
+      if (!seen.has(item.stockCode)) {
+        seen.add(item.stockCode);
+        result.push({
+          code: item.stockCode,
+          name: item.stockName || item.stockCode
+        });
+      }
+    }
+    // 按代码排序
+    return result.sort((a, b) => a.code.localeCompare(b.code));
+  }, [historyItems]);
+
+  // 根据筛选条件过滤的历史记录
+  const filteredHistoryItems = useMemo(() => {
+    if (!filterStockCode) {
+      return historyItems;
+    }
+    return historyItems.filter(item => item.stockCode === filterStockCode);
+  }, [historyItems, filterStockCode]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // 用于跟踪当前分析请求，避免竞态条件
@@ -230,11 +258,17 @@ const HomePage: React.FC = () => {
   };
 
   // 分析股票（异步模式）
-  const handleAnalyze = async () => {
-    const { valid, message, normalized } = validateStockCode(stockCode);
+  const handleAnalyze = async (code?: string) => {
+    const targetCode = code ?? stockCode;
+    const { valid, message, normalized } = validateStockCode(targetCode);
     if (!valid) {
       setInputError(message);
       return;
+    }
+
+    // 如果提供了 code，更新输入框
+    if (code !== undefined) {
+      setStockCode(code);
     }
 
     setInputError(undefined);
@@ -253,8 +287,8 @@ const HomePage: React.FC = () => {
         reportType: 'detailed',
       });
 
-      // 清空输入框
-      if (currentRequestId === analysisRequestIdRef.current) {
+      // 清空输入框（仅当没有提供外部 code 时，即用户手动输入）
+      if (currentRequestId === analysisRequestIdRef.current && code === undefined) {
         setStockCode('');
       }
 
@@ -287,12 +321,16 @@ const HomePage: React.FC = () => {
     <div className="flex flex-col gap-3 overflow-hidden min-h-0 h-full">
       <TaskPanel tasks={activeTasks} />
       <HistoryList
-        items={historyItems}
+        items={filteredHistoryItems}
         isLoading={isLoadingHistory}
         isLoadingMore={isLoadingMore}
         hasMore={hasMore}
         selectedId={selectedReport?.meta.id}
         onItemClick={(id) => { handleHistoryClick(id); setSidebarOpen(false); }}
+        onReanalyze={(code) => handleAnalyze(code)}
+        uniqueStocks={uniqueStocks}
+        filterStockCode={filterStockCode}
+        onFilterChange={setFilterStockCode}
         onLoadMore={handleLoadMore}
         className="max-h-[62vh] md:max-h-[62vh] flex-1 overflow-hidden"
       />
@@ -341,7 +379,7 @@ const HomePage: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={handleAnalyze}
+            onClick={() => handleAnalyze()}
             disabled={!stockCode || isAnalyzing}
             className="btn-primary flex items-center gap-1.5 whitespace-nowrap flex-shrink-0"
           >
