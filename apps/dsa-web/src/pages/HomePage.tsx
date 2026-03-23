@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ApiErrorAlert, ConfirmDialog, Button } from '../components/common';
 import { DashboardStateBlock } from '../components/dashboard';
 import { StockAutocomplete } from '../components/StockAutocomplete';
-import { HistoryList } from '../components/history';
+import { HistoryList, StockFilterModal } from '../components/history';
 import { ReportMarkdown, ReportSummary } from '../components/report';
 import { TaskPanel } from '../components/tasks';
 import { useDashboardLifecycle, useHomeDashboardState } from '../hooks';
@@ -14,6 +14,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const {
     query,
@@ -31,6 +32,7 @@ const HomePage: React.FC = () => {
     isLoadingReport,
     activeTasks,
     markdownDrawerOpen,
+    historyFilterStockCode,
     setQuery,
     clearError,
     loadInitialHistory,
@@ -48,6 +50,8 @@ const HomePage: React.FC = () => {
     openMarkdownDrawer,
     closeMarkdownDrawer,
     selectedIds,
+    filterHistoryByStock,
+    clearHistoryFilter,
   } = useHomeDashboardState();
 
   useEffect(() => {
@@ -102,6 +106,25 @@ const HomePage: React.FC = () => {
     setShowDeleteConfirm(false);
   }, [deleteSelectedHistory]);
 
+  const handleQuickAnalyze = useCallback(
+    (stockCode: string, stockName: string) => {
+      setQuery(stockCode);
+      void submitAnalysis({
+        stockCode,
+        stockName,
+        originalQuery: stockCode,
+        selectionSource: 'manual',
+      });
+    }, [setQuery, submitAnalysis],
+  );
+
+  const handleFilterSelect = useCallback(
+    (stockCode: string) => {
+      void filterHistoryByStock(stockCode);
+    },
+    [filterHistoryByStock],
+  );
+
   const sidebarContent = useMemo(
     () => (
       <div className="flex min-h-0 h-full flex-col gap-3 overflow-hidden">
@@ -119,6 +142,10 @@ const HomePage: React.FC = () => {
           onToggleItemSelection={toggleHistorySelection}
           onToggleSelectAll={toggleSelectAllVisible}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
+          onQuickAnalyze={handleQuickAnalyze}
+          onFilterClick={() => setShowFilterModal(true)}
+          onClearFilter={() => void clearHistoryFilter()}
+          filterStockCode={historyFilterStockCode}
           className="flex-1 overflow-hidden"
         />
       </div>
@@ -131,6 +158,10 @@ const HomePage: React.FC = () => {
       isLoadingHistory,
       isLoadingMore,
       handleHistoryItemClick,
+      handleQuickAnalyze,
+      handleFilterSelect,
+      clearHistoryFilter,
+      historyFilterStockCode,
       loadMoreHistory,
       selectedIds,
       selectedReport?.meta.id,
@@ -293,6 +324,12 @@ const HomePage: React.FC = () => {
         isDanger={true}
         onConfirm={handleDeleteSelectedHistory}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <StockFilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onSelect={handleFilterSelect}
       />
     </div>
   );

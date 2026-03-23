@@ -16,6 +16,12 @@ export interface GetHistoryListParams extends HistoryFilters {
   limit?: number;
 }
 
+export interface StockFilterItem {
+  stockCode: string;
+  stockName?: string;
+  lastAnalyzedAt?: string;
+}
+
 export const historyApi = {
   /**
    * 获取历史分析列表
@@ -88,5 +94,13 @@ export const historyApi = {
     });
 
     return toCamelCase<{ deleted: number }>(response.data);
+  },
+
+  /**
+   * 获取已分析过的唯一股票列表（用于筛选）
+   */
+  getUniqueStocks: async (): Promise<StockFilterItem[]> => {
+    const response = await apiClient.get<{ stocks: StockFilterItem[] }>('/api/v1/history/stocks');
+    return response.data.stocks || [];
   },
 };

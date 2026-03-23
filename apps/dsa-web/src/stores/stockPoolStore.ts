@@ -15,6 +15,7 @@ type FetchHistoryOptions = {
   autoSelectFirst?: boolean;
   reset?: boolean;
   silent?: boolean;
+  stockCode?: string;
 };
 
 type SubmitAnalysisOptions = {
@@ -47,6 +48,7 @@ export interface StockPoolState {
   isLoadingReport: boolean;
   activeTasks: TaskInfo[];
   markdownDrawerOpen: boolean;
+  historyFilterStockCode: string;
   setQuery: (query: string) => void;
   clearError: () => void;
   clearInlineMessages: () => void;
@@ -65,6 +67,8 @@ export interface StockPoolState {
   syncTaskFailed: (task: TaskInfo) => void;
   removeTask: (taskId: string) => void;
   resetDashboardState: () => void;
+  filterHistoryByStock: (stockCode: string) => Promise<void>;
+  clearHistoryFilter: () => Promise<void>;
 }
 
 const initialState = {
@@ -85,14 +89,16 @@ const initialState = {
   isLoadingReport: false,
   activeTasks: [] as TaskInfo[],
   markdownDrawerOpen: false,
+  historyFilterStockCode: '',
 };
 
-function buildHistoryParams(page: number) {
+function buildHistoryParams(page: number, stockCode?: string) {
   return {
     startDate: getRecentStartDate(30),
     endDate: getTodayInShanghai(),
     page,
     limit: PAGE_SIZE,
+    stockCode: stockCode || undefined,
   };
 }
 
@@ -115,7 +121,7 @@ async function fetchHistory(
   }
 
   try {
-    const response = await historyApi.getList(buildHistoryParams(page));
+    const response = await historyApi.getList(buildHistoryParams(page, options.stockCode));
     if (requestId !== historyRequestSeq) {
       return null;
     }
@@ -267,6 +273,7 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
       return;
     }
 
+    const hadFilter = state.historyFilterStockCode !== '';
     set({ isDeletingHistory: true });
     try {
       await historyApi.deleteRecords(recordIds);
@@ -278,6 +285,10 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
       set({ selectedHistoryIds: [] });
 
       const freshPage = await fetchHistory(get, set, { reset: true });
+
+      if (hadFilter) {
+        set({ historyFilterStockCode: '' });
+      }
 
       if (selectedWasDeleted) {
         const nextItem = freshPage?.items?.[0];
@@ -397,6 +408,16 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
   removeTask: (taskId) => {
     dismissedTaskIds.add(taskId);
     set({ activeTasks: get().activeTasks.filter((task) => task.taskId !== taskId) });
+  },
+
+  filterHistoryByStock: async (stockCode: string) => {
+    set({ historyFilterStockCode: stockCode });
+    await fetchHistory(get, set, { reset: true, stockCode });
+  },
+
+  clearHistoryFilter: async () => {
+    set({ historyFilterStockCode: '' });
+    await fetchHistory(get, set, { reset: true });
   },
 
   resetDashboardState: () => {

@@ -134,6 +134,20 @@ class HistoryService:
             logger.error(f"查询历史列表失败: {e}", exc_info=True)
             return {"total": 0, "items": []}
 
+    def get_unique_stocks(self) -> List[Dict[str, Any]]:
+        """
+        Get all unique stocks that have been analyzed.
+
+        Returns:
+            List of stock info dicts with stockCode, stockName, lastAnalyzedAt
+        """
+        try:
+            stocks = self.db.get_unique_stocks()
+            return stocks
+        except Exception as e:
+            logger.error(f"获取唯一股票列表失败: {e}", exc_info=True)
+            return []
+
     def _resolve_record(self, record_id: str):
         """
         Resolve a record_id parameter to an AnalysisHistory object.

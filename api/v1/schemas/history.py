@@ -48,12 +48,12 @@ class HistoryItem(BaseModel):
 
 class HistoryListResponse(BaseModel):
     """历史记录列表响应"""
-    
+
     total: int = Field(..., description="总记录数")
     page: int = Field(..., description="当前页码")
     limit: int = Field(..., description="每页数量")
     items: List[HistoryItem] = Field(default_factory=list, description="记录列表")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -63,6 +63,18 @@ class HistoryListResponse(BaseModel):
                 "items": []
             }
         }
+
+
+class StockFilterItem(BaseModel):
+    """筛选股票条目"""
+    stockCode: str = Field(..., description="股票代码")
+    stockName: Optional[str] = Field(None, description="股票名称")
+    lastAnalyzedAt: Optional[str] = Field(None, description="最近分析时间")
+
+
+class StockFilterResponse(BaseModel):
+    """股票筛选列表响应"""
+    stocks: List[StockFilterItem] = Field(default_factory=list, description="股票列表")
 
 
 class DeleteHistoryRequest(BaseModel):

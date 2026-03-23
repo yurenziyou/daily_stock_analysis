@@ -10,14 +10,18 @@ interface HistoryListProps {
   isLoading: boolean;
   isLoadingMore: boolean;
   hasMore: boolean;
-  selectedId?: number;  // 当前选中的历史记录 ID
+  selectedId?: number;
   selectedIds: Set<number>;
   isDeleting?: boolean;
-  onItemClick: (recordId: number) => void;  // 点击记录的回调
+  onItemClick: (recordId: number) => void;
   onLoadMore: () => void;
   onToggleItemSelection: (recordId: number) => void;
   onToggleSelectAll: () => void;
   onDeleteSelected: () => void;
+  onQuickAnalyze?: (stockCode: string, stockName: string) => void;
+  onFilterClick: () => void;
+  onClearFilter: () => void;
+  filterStockCode?: string;
   className?: string;
 }
 
@@ -38,6 +42,10 @@ export const HistoryList: React.FC<HistoryListProps> = ({
   onToggleItemSelection,
   onToggleSelectAll,
   onDeleteSelected,
+  onQuickAnalyze,
+  onFilterClick,
+  onClearFilter,
+  filterStockCode,
   className = '',
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -103,7 +111,19 @@ export const HistoryList: React.FC<HistoryListProps> = ({
             )}
             headingClassName="items-center"
             actions={
-              selectedCount > 0 ? (
+              filterStockCode ? (
+                <Badge variant="info" size="sm" className="animate-in fade-in zoom-in duration-200">
+                  {filterStockCode}
+                  <button
+                    type="button"
+                    onClick={onClearFilter}
+                    className="ml-1 rounded px-0.5 text-[10px] hover:bg-cyan-200/50"
+                    aria-label="清除筛选"
+                  >
+                    ×
+                  </button>
+                </Badge>
+              ) : selectedCount > 0 ? (
                 <Badge variant="info" size="sm" className="history-selection-badge animate-in fade-in zoom-in duration-200">
                   已选 {selectedCount}
                 </Badge>
@@ -139,6 +159,17 @@ export const HistoryList: React.FC<HistoryListProps> = ({
               >
                 {isDeleting ? '删除中' : '删除'}
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onFilterClick}
+                className="history-filter-button px-2"
+                title="筛选股票"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+              </Button>
             </div>
           )}
         </div>
@@ -170,6 +201,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                 isDeleting={isDeleting}
                 onToggleChecked={onToggleItemSelection}
                 onClick={onItemClick}
+                onQuickAnalyze={onQuickAnalyze}
               />
             ))}
 

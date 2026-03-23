@@ -5,11 +5,12 @@ import { formatDateTime } from '../../utils/format';
 
 interface HistoryListItemProps {
   item: HistoryItem;
-  isViewing: boolean; // Indicates if this report is currently being viewed in the right panel
-  isChecked: boolean; // Indicates if the checkbox is checked for bulk operations
+  isViewing: boolean;
+  isChecked: boolean;
   isDeleting: boolean;
   onToggleChecked: (recordId: number) => void;
   onClick: (recordId: number) => void;
+  onQuickAnalyze?: (stockCode: string, stockName: string) => void;
 }
 
 const getOperationBadgeLabel = (advice?: string) => {
@@ -39,6 +40,7 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({
   isDeleting,
   onToggleChecked,
   onClick,
+  onQuickAnalyze,
 }) => {
   return (
     <div className="flex items-start gap-2 group">
@@ -96,6 +98,22 @@ export const HistoryListItem: React.FC<HistoryListItemProps> = ({
               <span className="text-[11px] text-muted-text">
                 {formatDateTime(item.createdAt)}
               </span>
+              {onQuickAnalyze && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onQuickAnalyze(item.stockCode, item.stockName || item.stockCode);
+                  }}
+                  disabled={isDeleting}
+                  title="快速重新分析"
+                  className="ml-auto flex-shrink-0 rounded-lg p-1 opacity-0 group-hover:opacity-100 group-hover/item:opacity-100 transition-opacity text-secondary-text hover:bg-hover hover:text-foreground disabled:opacity-50"
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         </div>

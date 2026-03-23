@@ -28,6 +28,8 @@ from api.v1.schemas.history import (
     ReportStrategy,
     ReportDetails,
     MarkdownReportResponse,
+    StockFilterItem,
+    StockFilterResponse,
 )
 from api.v1.schemas.common import ErrorResponse
 from src.storage import DatabaseManager
@@ -170,6 +172,45 @@ def delete_history_records(
             detail={
                 "error": "internal_error",
                 "message": f"删除历史记录失败: {str(e)}"
+            }
+        )
+
+
+@router.get(
+    "/stocks",
+    response_model=StockFilterResponse,
+    responses={
+        200: {"description": "股票筛选列表"},
+        500: {"description": "服务器错误", "model": ErrorResponse},
+    },
+    summary="获取已分析股票列表",
+    description="获取所有已分析过的唯一股票列表，用于历史记录筛选"
+)
+def get_unique_stocks(
+    db_manager: DatabaseManager = Depends(get_database_manager)
+) -> StockFilterResponse:
+    """
+    获取所有已分析过的唯一股票列表（按最近分析时间排序）
+    """
+    try:
+        service = HistoryService(db_manager)
+        stocks = service.get_unique_stocks()
+        items = [
+            StockFilterItem(
+                stockCode=s.get("stockCode", ""),
+                stockName=s.get("stockName"),
+                lastAnalyzedAt=s.get("lastAnalyzedAt"),
+            )
+            for s in stocks
+        ]
+        return StockFilterResponse(stocks=items)
+    except Exception as e:
+        logger.error(f"获取股票列表失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "internal_error",
+                "message": f"获取股票列表失败: {str(e)}"
             }
         )
 

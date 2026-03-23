@@ -24,6 +24,7 @@ export function useHomeDashboardState() {
       isLoadingReport: state.isLoadingReport,
       activeTasks: state.activeTasks,
       markdownDrawerOpen: state.markdownDrawerOpen,
+      historyFilterStockCode: state.historyFilterStockCode,
       setQuery: state.setQuery,
       clearError: state.clearError,
       loadInitialHistory: state.loadInitialHistory,
@@ -40,6 +41,8 @@ export function useHomeDashboardState() {
       removeTask: state.removeTask,
       openMarkdownDrawer: state.openMarkdownDrawer,
       closeMarkdownDrawer: state.closeMarkdownDrawer,
+      filterHistoryByStock: state.filterHistoryByStock,
+      clearHistoryFilter: state.clearHistoryFilter,
     })),
   );
 

@@ -1198,9 +1198,38 @@ class DatabaseManager:
                 .limit(limit)
             )
             results = session.execute(data_query).scalars().all()
-            
+
             return list(results), total
-    
+
+    def get_unique_stocks(self) -> List[Dict[str, Any]]:
+        """
+        获取所有已分析过的唯一股票列表（按最近分析时间排序）
+
+        Returns:
+            List[Dict]: 包含 stock_code, stock_name, last_analyzed_at 的列表
+        """
+        from sqlalchemy import func, distinct
+
+        with self.get_session() as session:
+            results = session.execute(
+                select(
+                    AnalysisHistory.code,
+                    AnalysisHistory.name,
+                    func.max(AnalysisHistory.created_at).label('last_analyzed_at')
+                )
+                .group_by(AnalysisHistory.code, AnalysisHistory.name)
+                .order_by(desc('last_analyzed_at'))
+            ).all()
+
+            return [
+                {
+                    'stockCode': row.code,
+                    'stockName': row.name,
+                    'lastAnalyzedAt': row.last_analyzed_at.isoformat() if row.last_analyzed_at else None,
+                }
+                for row in results
+            ]
+
     def get_analysis_history_by_id(self, record_id: int) -> Optional[AnalysisHistory]:
         """
         根据数据库主键 ID 查询单条分析历史记录
