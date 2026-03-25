@@ -125,7 +125,7 @@ async function fetchHistory(
   }
 
   try {
-    const response = await historyApi.getList(buildHistoryParams(page, options.stockCode));
+    const response = await historyApi.getList(buildHistoryParams(page, options.stockCode ?? currentState.historyFilterStockCode));
     if (requestId !== historyRequestSeq) {
       return null;
     }
@@ -279,8 +279,7 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
       return;
     }
 
-    const hadFilter = state.historyFilterStockCode !== '';
-    set({ isDeletingHistory: true });
+    set({ isDeletingHistory: true, historyFilterStockCode: '' });
     try {
       await historyApi.deleteRecords(recordIds);
 
@@ -290,11 +289,7 @@ export const useStockPoolStore = create<StockPoolState>((set, get) => ({
 
       set({ selectedHistoryIds: [] });
 
-      const freshPage = await fetchHistory(get, set, { reset: true });
-
-      if (hadFilter) {
-        set({ historyFilterStockCode: '' });
-      }
+      const freshPage = await fetchHistory(get, set, { reset: true, stockCode: undefined });
 
       if (selectedWasDeleted) {
         const nextItem = freshPage?.items?.[0];
